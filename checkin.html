@@ -1,0 +1,42 @@
+OCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solstitium Check-in</title>
+  <meta name="theme-color" content="#d4af37" />
+  <link rel="stylesheet" href="/qrcode-style.css" />
+
+  <script>
+    // 📱 Carica automaticamente lo stile mobile se schermo < 768px
+    if (window.innerWidth < 768) {
+      const mobileCSS = document.createElement("link");
+      mobileCSS.rel = "stylesheet";
+      mobileCSS.href = "/qrcode-style-mobile.css";
+      document.head.appendChild(mobileCSS);
+      console.log("📱 Stile mobile attivato");
+    }
+  </script>
+
+  <!-- Open Graph di base -->
+  <meta property="og:title" content="Solstitium • Check-in QR" />
+  <meta property="og:description" content="Mostra questo QR al personale Solstitium per il check-in." />
+  <meta property="og:type" content="website" />
+</head>
+
+<body>
+  <div id="wrapper" style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#000;color:#d4af37;text-align:center;">
+    <div id="message"></div>
+    <div id="checkin" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Supabase client -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+  <!-- (Opzionale) tuo handler Telegram; se non presente useremo il fallback interno -->
+  <script src="/telegram-handler.js"></script>
+
+  <!-- Script logica check-in (lo creiamo nello step 2) -->
+  <script src="/qrcode-manager.js"></script>
+</body>
+</html>
