@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "routes": [
+    { "src": "/api/preview/(.*)", "dest": "/api/preview/[file].js" }
+  ]
+}
