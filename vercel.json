@@ -10,5 +10,5 @@
     { "src": "/(.*)", "dest": "/checkin.html" }
   ],
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "echo 'No build step required for serverless functions'"
+  "buildCommand": "echo '✅ No build step required for serverless functions'"
 }
