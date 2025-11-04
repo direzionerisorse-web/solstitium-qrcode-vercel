@@ -10,5 +10,7 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/(.*)", "dest": "/checkin.html" }
-  ]
+  ],
+  "installCommand": "npm install",
+  "buildCommand": "npm run build || echo 'no build step'"
 }
