@@ -15,13 +15,3 @@
     { "src": "/(.*)", "dest": "/checkin.html" }
   ]
 }
-{
-  "name": "solstitium-qrcode-vercel",
-  "version": "1.0.0",
-  "engines": {
-    "node": "18.x"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.42.0"
-  }
-}
