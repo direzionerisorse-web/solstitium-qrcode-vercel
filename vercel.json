@@ -1,16 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node@2.15.10",
-      "config": { "runtime": "nodejs18.x" }
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
     }
-  ],
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/(.*)", "dest": "/checkin.html" }
   ],
-  "installCommand": "npm install",
-  "buildCommand": "npm run build || echo 'no build step'"
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "echo 'No build step required for serverless functions'"
 }
