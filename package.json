@@ -1,8 +1,6 @@
-{
-  "engines": {
-    "node": "18.x"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.3"
-  }
+"engines": {
+  "node": "22.x"
+},
+"dependencies": {
+  "@supabase/supabase-js": "^2.45.1"
 }
