@@ -1,15 +1,10 @@
 {
   "name": "solstitium-qrcode-vercel",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.1"
-  },
   "engines": {
-    "node": "22.x"
+    "node": "18.x"
   },
-  "scripts": {
-    "start": "vercel dev"
+  "dependencies": {
+    "@supabase/supabase-js": "^2.42.0"
   }
 }
