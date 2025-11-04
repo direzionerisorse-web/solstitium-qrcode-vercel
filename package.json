@@ -1,13 +1,11 @@
 {
   "name": "solstitium-qrcode-vercel",
   "version": "1.0.0",
-  "description": "Solstitium QRCode Manager - Vercel Deployment",
-  "main": "checkin.html",
+  "type": "module",
   "engines": {
-    "node": "18.x"
+    "node": "20.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.42.0"
-  },
-  "license": "MIT"
+  }
 }
