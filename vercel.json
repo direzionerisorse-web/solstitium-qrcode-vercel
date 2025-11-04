@@ -2,13 +2,11 @@
   "version": 2,
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs22.x"
     }
   },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/(.*)", "dest": "/checkin.html" }
-  ],
-  "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "echo '✅ No build step required for serverless functions'"
+  ]
 }
