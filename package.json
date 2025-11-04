@@ -1,9 +1,13 @@
 {
   "name": "solstitium-qrcode-vercel",
   "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=18.x"
+  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.3",
-    "node-fetch": "^3.3.2"
+    "@supabase/supabase-js": "^2.39.3"
   }
 }
