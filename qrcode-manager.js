@@ -1,52 +1,43 @@
 /* =========================================================
-💎 SOLSTITIUM QR CHECK-IN MANAGER — v3.0
-• Gestione duale cliente / manager (codice 8008)
-• Aggiornamento Supabase e notifica Telegram
-• Badge dorato persistente “👑 Manager attivo”
+💎 SOLSTITIUM QR CHECK-IN MANAGER — v4.0
+• Mostra anteprima dettagli PRIMA di confermare il check-in
+• Conferma manuale (clic), nessuna azione automatica sul cliente
+• Badge dorato, UX TOP, notifiche Telegram, sicurezza
 ========================================================= */
 
+// --- Config ---
 const SUPABASE_URL = "https://srnlpifcanveusghgqaa.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmxwaWZjYW52ZXVzZ2hncWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNjM0MjUsImV4cCI6MjA3NjczOTQyNX0.isY5dL5MIkL6tiIM3yKIkirpCYoOt9AliM1hs_nQEFs";
-
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNybmxwaWZjYW52ZXVzZ2hncWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNjM0MjUsImV4cCI6MjA3NjczOTQyNX0.isY5dL5MIkL6tiIM3yKIkirpCYoOt9AliM1hs_nQEFs";
 const TELEGRAM_BOT_TOKEN = "7578879852:AAENCFfDGha7cqqzFoYogtwhtqtb56rmY40";
 const TELEGRAM_CHAT_ID = "-4806269233";
+const MANAGER_KEY = "SLS_MGR_AUTH_PERM";
 
+// --- Inizializzazione Supabase ---
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const wrapper = document.getElementById("wrapper");
-const messageBox = document.getElementById("message");
-const checkinBox = document.getElementById("checkin");
 const params = new URLSearchParams(window.location.search);
 const file = params.get("file");
 const mgrCode = params.get("mgr");
-const MANAGER_KEY = "SLS_MGR_AUTH_PERM";
 
-/* ---------- FUNZIONI BASE ---------- */
+// --- Elementi UI ---
+const wrapper = document.getElementById("wrapper");
+const messageBox = document.getElementById("message");
 
-// Mostra un messaggio elegante
-function showMessage(html) {
-  wrapper.innerHTML = `
-    <div style="text-align:center;color:#d4af37;padding:40px;max-width:400px;">
-      ${html}
-    </div>`;
-}
-
-// Badge manager
+// --- Badge manager ---
 function renderManagerBadge() {
+  if (document.getElementById("managerBadge")) return;
   const badge = document.createElement("div");
   badge.id = "managerBadge";
   badge.textContent = "👑 Manager attivo";
   badge.style.cssText = `
-    position:fixed;top:15px;right:15px;background:#111;
+    position:fixed;top:16px;right:16px;background:#111;
     color:#d4af37;padding:6px 12px;border-radius:12px;
-    font-family:Poppins,sans-serif;font-size:0.85rem;
-    box-shadow:0 0 8px rgba(212,175,55,0.6);z-index:9999;
+    font-family:Poppins,sans-serif;font-size:0.86rem;
+    box-shadow:0 0 8px rgba(212,175,55,0.55);z-index:9999;
   `;
   document.body.appendChild(badge);
 }
 
-// Telegram sender
+// --- Telegram sender ---
 async function sendTelegram(text) {
   try {
     await fetch(
@@ -57,45 +48,55 @@ async function sendTelegram(text) {
         body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text }),
       }
     );
-    console.log("💬 Telegram inviato:", text);
-  } catch (err) {
-    console.warn("⚠️ Errore Telegram:", err);
-  }
+  } catch (e) {}
 }
 
-/* ---------- LOGIN MANAGER ---------- */
+// --- Messaggi/loader/status ---
+function showMessage(html) {
+  wrapper.innerHTML = `
+    <div style="text-align:center;color:#d4af37;padding:40px;max-width:410px;">
+      ${html}
+    </div>`;
+}
 
-async function initManagerAuth() {
+// --- Autenticazione manager ---
+function isManagerPerm() {
+  return localStorage.getItem(MANAGER_KEY) === "true";
+}
+function storeManagerPerm() {
+  localStorage.setItem(MANAGER_KEY, "true");
+}
+
+// --- Avvio sessione manager da ?mgr=8008 oppure da localStorage ---
+function ensureManager() {
   if (mgrCode === "8008") {
-    localStorage.setItem(MANAGER_KEY, "true");
-    showMessage("<h2>👑 Modalità manager attivata</h2><p>Puoi chiudere questa pagina.</p>");
+    storeManagerPerm();
     renderManagerBadge();
     return true;
   }
-  if (localStorage.getItem(MANAGER_KEY) === "true") {
+  if (isManagerPerm()) {
     renderManagerBadge();
     return true;
   }
   return false;
 }
 
-/* ---------- CHECK-IN LOGIC ---------- */
-
+// --- Recupera la prenotazione solo per ANTEPRIMA ---
 async function fetchPrenotazione(file) {
   const { data, error } = await supabase
     .from("prenotazioni")
-    .select("*")
+    .select("id, nome, tavolo, pax, ora, data, stato, checkin_at")
     .ilike("qr_url", `%${file}%`)
     .single();
   if (error || !data) throw new Error("Prenotazione non trovata");
   return data;
 }
 
-async function registraCheckin(p) {
-  const { id, nome, tavolo, pax, ora } = p;
+// --- Registra il check-in ---
+async function confermaCheckin(prenotazione) {
+  showMessage(`<p>⏳ Registrazione in corso...</p>`);
   const oraNow = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-
-  // Aggiorna Supabase
+  const { id, nome, tavolo, pax } = prenotazione;
   const { error } = await supabase
     .from("prenotazioni")
     .update({
@@ -104,51 +105,88 @@ async function registraCheckin(p) {
       checkin_by: "8008",
     })
     .eq("id", id);
-
   if (error) throw error;
 
-  // Telegram
-  const msg = `✅ Check-in: ${nome} — Tav. ${tavolo || "-"} — ${oraNow} — ${pax || 0} pax`;
-  await sendTelegram(msg);
+  // Notifica Telegram
+  await sendTelegram(`✅ Check-in: ${nome}\nTavolo: ${tavolo || "-"}\nOra: ${oraNow}\nPax: ${pax || 0}`);
 
-  // Messaggio visivo
+  // Feedback finale manager
   showMessage(`
-    <h2 style="color:#00c851;">✅ Check-in registrato</h2>
-    <p><b>${nome}</b></p>
+    <h2 style="color:#00e676;">✔️ CHECK-IN <br> REGISTRATO</h2>
+    <div style="margin-bottom:6px;font-size:1.2em;color:#ffd766;">
+      <b>${nome}</b>
+    </div>
+    <p>${prenotazione.data} — ${prenotazione.ora}</p>
     <p>${pax || 0} pax — Tavolo ${tavolo || "-"}</p>
-    <p>🕒 ${oraNow}</p>
+    <button id="newCheckinBtn" style="margin-top:24px;padding:14px 30px;font-size:1.1em;border-radius:9px;border:none;background:#222;color:#ffd766;cursor:pointer;font-weight:600;">
+      Nuovo check-in
+    </button>
   `);
+
+  document.getElementById("newCheckinBtn").onclick = () => window.location.reload();
+  renderManagerBadge();
 }
 
-/* ---------- AVVIO ---------- */
-
+/* ========== INIT FLOW ========== */
 (async () => {
   if (!file) {
     showMessage("<h2>⚠️ QR non valido</h2><p>Manca il parametro ?file=...</p>");
     return;
   }
 
-  const isManager = await initManagerAuth();
+  const isManager = ensureManager();
 
+  // STEP 1: PRIMA verifico che la prenotazione esista!
+  let pren = null;
   try {
-    const prenotazione = await fetchPrenotazione(file);
-
-    if (!isManager) {
-      // Cliente → mostra QR e messaggio
-      showMessage(`
-        <h2>🔒 QR riservato al sistema Solstitium</h2>
-        <p>Mostralo al personale per il check-in.</p>
-        <img src="https://srnlpifcanveusghgqaa.supabase.co/storage/v1/object/public/qrcodes/${file}" 
-             alt="QR" style="width:240px;height:240px;border-radius:12px;margin-top:20px;">
-      `);
-      return;
-    }
-
-    // Manager → registra check-in
-    await registraCheckin(prenotazione);
-
-  } catch (err) {
-    console.warn("❌ Errore:", err);
-    showMessage(`<h2 style="color:red;">Prenotazione non trovata</h2>`);
+    pren = await fetchPrenotazione(file);
+  } catch (e) {
+    showMessage("<h2 style='color:red;'>Prenotazione non trovata</h2>");
+    return;
   }
+
+  // Se è già arrivato, blocca!
+  if (pren.checkin_at) {
+    showMessage(`
+      <h2 style="color:#ffd766;">⚠️ Check-in già registrato!</h2>
+      <div style="margin:10px 0;"><b>${pren.nome}</b></div>
+      <div>${pren.data} — ${pren.ora} &bull; Tav. ${pren.tavolo || "-"}</div>
+      <div>Arrivato alle ${new Date(pren.checkin_at).toLocaleTimeString("it-IT", {hour:'2-digit',minute:'2-digit'})}</div>
+    `);
+    renderManagerBadge();
+    return;
+  }
+
+  // STEP 2: CLIENTE: non autenticato, solo mostra QR e istruzioni
+  if (!isManager) {
+    showMessage(`
+      <h2>🔒 QR riservato al sistema Solstitium</h2>
+      <p>Mostralo al personale per il check-in.</p>
+      <img src="https://srnlpifcanveusghgqaa.supabase.co/storage/v1/object/public/qrcodes/${file}"
+          alt="QR" style="width:240px;height:240px;border-radius:12px;margin-top:20px;">
+    `);
+    return;
+  }
+
+  // STEP 3: MANAGER - mostra ANTEPRIMA + bottone conferma
+  showMessage(`
+    <h2 style="color:#ffd766;">Conferma check-in</h2>
+    <div style="margin-bottom:6px;font-size:1.2em;color:#ffd766;">
+      <b>${pren.nome}</b>
+    </div>
+    <div>${pren.data} — ${pren.ora}</div>
+    <div>${pren.pax || 0} pax — Tavolo ${pren.tavolo || "-"}</div>
+    <button id="confirmCheckinBtn" style="margin-top:28px;padding:16px 36px;font-size:1.15em;border-radius:10px;border:none;background:#ffd766;color:#111;cursor:pointer;font-weight:700;">
+      ✔️ Conferma check-in
+    </button>
+  `);
+  document.getElementById("confirmCheckinBtn").onclick = async () => {
+    try {
+      await confermaCheckin(pren);
+    } catch (err) {
+      showMessage("<h2 style='color:red;'>Errore durante la registrazione</h2><p>Riprova.</p>");
+    }
+  };
+
+  renderManagerBadge();
 })();
