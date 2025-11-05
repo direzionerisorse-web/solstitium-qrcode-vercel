@@ -92,20 +92,35 @@ async function fetchPrenotazione(file) {
   return data;
 }
 
-// --- Registra il check-in ---
+// --- Registra il check-in via API Vercel ---
 async function confermaCheckin(prenotazione) {
   showMessage(`<p>⏳ Registrazione in corso...</p>`);
-  const oraNow = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-  const { id, nome, tavolo, pax } = prenotazione;
-  const { error } = await supabase
-    .from("prenotazioni")
-    .update({
-      stato: "ARRIVATO",
-      checkin_at: new Date().toISOString(),
-      checkin_by: "8008",
-    })
-    .eq("id", id);
-  if (error) throw error;
+  try {
+    const url = `/api/checkinConfirm?managerCode=8008&file=${encodeURIComponent(params.get("file"))}`;
+    const response = await fetch(url, { method: "POST" });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message);
+
+    showMessage(`
+      <h2 style="color:#00e676;">✔️ CHECK-IN <br> REGISTRATO</h2>
+      <div style="margin-bottom:6px;font-size:1.2em;color:#ffd766;">
+        <b>${data.nome}</b>
+      </div>
+      <p>${prenotazione.data} — ${prenotazione.ora}</p>
+      <p>${prenotazione.pax || 0} pax — Tavolo ${prenotazione.tavolo || "-"}</p>
+      <button id="newCheckinBtn" style="margin-top:24px;padding:14px 30px;font-size:1.1em;border-radius:9px;border:none;background:#222;color:#ffd766;cursor:pointer;font-weight:600;">
+        Nuovo check-in
+      </button>
+    `);
+
+    document.getElementById("newCheckinBtn").onclick = () => window.location.reload();
+    renderManagerBadge();
+  } catch (err) {
+    showMessage("<h2 style='color:red;'>Errore durante la registrazione</h2><p>Riprova.</p>");
+    renderManagerBadge();
+  }
+}
+
 
   // Notifica Telegram
   await sendTelegram(`✅ Check-in: ${nome}\nTavolo: ${tavolo || "-"}\nOra: ${oraNow}\nPax: ${pax || 0}`);
