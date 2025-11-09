@@ -1,11 +1,10 @@
 /* =========================================================
-💎 SOLSTITIUM QR CHECK-IN MANAGER — v3.1
-• Scanner QR integrato
+💎 SOLSTITIUM QR CHECK-IN MANAGER — v3.2
+• Bottone "Scansiona QR" nella home
+• Scanner QR integrato con ZXing
 • Anteprima prima di confermare
 • Registra via API Vercel
 • Manager mode permanente
-• Badge elegante + Esci button
-• Telegram integrato (chat separata)
 ========================================================= */
 
 const SUPABASE_URL = "https://srnlpifcanveusghgqaa.supabase.co";
@@ -71,41 +70,85 @@ async function notifyTelegram(message) {
   } catch (e) { console.warn("Telegram error:", e); }
 }
 
+// ===== Scanner QR Modal =====
+function openQRScanner() {
+  const modal = document.createElement("div");
+  Object.assign(modal.style, {
+    position: "fixed", top: "0", left: "0",
+    width: "100%", height: "100%",
+    background: "rgba(0,0,0,0.95)", zIndex: 10000,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    flexDirection: "column"
+  });
+
+  modal.innerHTML = `
+    <div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <button style="position:absolute;top:20px;right:20px;background:#d4af37;color:#111;border:none;
+        border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:700;z-index:10001;">✕ Chiudi</button>
+      <div id="scanner-container" style="width:320px;height:320px;border:3px solid #d4af37;
+        border-radius:16px;overflow:hidden;background:#000;margin:0 auto;">
+        <video id="qr-video" style="width:100%;height:100%;object-fit:cover;"></video>
+      </div>
+      <p style="color:#d4af37;margin-top:20px;font-size:0.95rem;text-align:center;">Posiziona il QR nel frame</p>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  // Close button
+  const closeBtn = modal.querySelector("button");
+  closeBtn.onclick = () => modal.remove();
+
+  // Carica ZXing
+  const script = document.createElement("script");
+  script.src = "https://unpkg.com/@zxing/library@latest/umd/index.min.js";
+  script.onload = () => {
+    const video = document.getElementById("qr-video");
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    
+    codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
+      if (result) {
+        const qrText = result.getText();
+        console.log("QR scanned:", qrText);
+        
+        // Estrai il nome file dal QR
+        const fileFromQR = qrText.split("file=")[1]?.split("&")[0];
+        if (fileFromQR) {
+          modal.remove();
+          window.location.href = `?file=${fileFromQR}&mgr=8008`;
+        }
+      }
+    });
+  };
+  document.head.appendChild(script);
+}
+
 // ===== MAIN LOGIC =====
 async function initCheckin() {
-  // --- Se NO file parameter, mostra SCANNER QR per manager ---
   if (!file && isManager()) {
-    msgBox.innerHTML = `<p style="color:#d4af37;">📱 Scanner QR</p>`;
+    // ===== HOME SCREEN CON BOTTONE SCANNER =====
+    msgBox.innerHTML = `<p style="color:#d4af37;font-size:1.1rem;font-weight:600;">📱 Check-in Manager</p>`;
     box.innerHTML = `
-      <div style="text-align:center;padding:20px;">
-        <div id="scanner-container" style="width:300px;height:300px;margin:0 auto;border:2px solid #d4af37;border-radius:12px;background:#111;overflow:hidden;">
-          <video id="qr-video" style="width:100%;height:100%;object-fit:cover;"></video>
-        </div>
-        <p style="color:#d4af37;margin-top:20px;font-size:0.9rem;">Posiziona il QR nel frame</p>
+      <div style="text-align:center;padding:30px;">
+        <button id="scanBtn" style="padding:16px 40px;background:#d4af37;color:#111;
+          border:none;border-radius:14px;cursor:pointer;font-weight:700;font-size:1.1rem;
+          box-shadow:0 0 20px rgba(212,175,55,0.4);transition:all 0.3s;">
+          📱 SCANSIONA QR
+        </button>
+        <p style="color:#999;margin-top:20px;font-size:0.9rem;">Clicca per scansionare un nuovo check-in</p>
       </div>`;
     
-    // Carica script zxing per scanner
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/@zxing/library@latest/umd/index.min.js";
-    script.onload = () => {
-      const video = document.getElementById("qr-video");
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      
-      codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
-        if (result) {
-          const qrText = result.getText();
-          console.log("QR scanned:", qrText);
-          
-          // Estrai il nome file dal QR
-          const fileFromQR = qrText.split("file=")[1]?.split("&")[0];
-          if (fileFromQR) {
-            window.location.href = `?file=${fileFromQR}&mgr=8008`;
-          }
-        }
-      });
-    };
-    document.head.appendChild(script);
+    document.getElementById("scanBtn").onclick = openQRScanner;
     
+    // Effetto hover
+    document.getElementById("scanBtn").onmouseover = function() {
+      this.style.background = "#ffd766";
+      this.style.boxShadow = "0 0 30px rgba(212,175,55,0.6)";
+    };
+    document.getElementById("scanBtn").onmouseout = function() {
+      this.style.background = "#d4af37";
+      this.style.boxShadow = "0 0 20px rgba(212,175,55,0.4)";
+    };
+
     mountExitButton();
     showManagerBadge();
     return;
@@ -189,10 +232,10 @@ async function initCheckin() {
           <p><b>${data.nome}</b></p>
           <p>${pren.data} — ${pren.ora}</p>
           <p>${pren.pax || 0} pax · Tavolo ${data.tavolo || "-"}</p>
-          <button onclick="location.reload()" 
+          <button onclick="location.href='?mgr=8008'" 
             style="margin-top:20px;padding:10px 20px;background:#222;color:#ffd766;
             border:1px solid #444;border-radius:8px;cursor:pointer;">
-            Nuovo check-in
+            📱 Nuovo check-in
           </button></div>`;
         msgBox.innerHTML = "";
 
