@@ -11,8 +11,8 @@ import { createClient } from '@supabase/supabase-js';
 // 🟡 Helper — invio messaggio Telegram
 async function notifyTelegram(text) {
   try {
-    const bot = process.env.TELEGRAM_BOT_TOKEN;
-    const chat = process.env.TELEGRAM_CHAT_ID;
+    const bot = process.env.TELEGRAM_CHECKIN_TOKEN;
+    const chat = process.env.TELEGRAM_CHECKIN_CHAT_ID;
     if (!bot || !chat) {
       console.log('⚠️ Telegram non configurato');
       return;
