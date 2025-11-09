@@ -1,9 +1,9 @@
 /* =========================================================
   SOLSTITIUM — CHECK-IN MANAGER (API, Vercel)
   • Autenticazione con codice manager 8008
-  • Trova la prenotazione via qr_id oppure via nome file (?file=...)
+  • Trova prenotazione via qr_url esatta
   • Aggiorna stato='ARRIVATO' + checkin_at=now()
-  • Invia notifica Telegram (breve)
+  • Invia notifica Telegram
 ========================================================= */
 
 import { createClient } from '@supabase/supabase-js';
@@ -35,7 +35,7 @@ async function notifyTelegram(text) {
 }
 
 export default async function handler(req, res) {
-  // Abilita CORS (importante per le richieste dal frontend)
+  // Abilita CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -52,12 +52,17 @@ export default async function handler(req, res) {
   try {
     console.log('🔍 Parametri ricevuti:', req.query);
 
-    const { managerCode, qrId, file } = req.query || {};
+    const { managerCode, file } = req.query || {};
 
     // 🔐 Autenticazione semplice
     if (managerCode !== '8008') {
       console.warn('❌ Codice manager non valido:', managerCode);
       return res.status(403).json({ success: false, message: 'Accesso negato' });
+    }
+
+    if (!file) {
+      console.error('❌ Parametro file mancante');
+      return res.status(400).json({ success: false, message: 'Parametro file mancante' });
     }
 
     // ⚙️ Supabase client (service role)
@@ -66,60 +71,35 @@ export default async function handler(req, res) {
 
     if (!supabaseUrl || !supabaseKey) {
       console.error('❌ Variabili Supabase mancanti!');
-      console.error('   SUPABASE_URL:', supabaseUrl ? '✅' : '❌');
-      console.error('   SUPABASE_SERVICE_ROLE_KEY:', supabaseKey ? '✅' : '❌');
       return res.status(500).json({
         success: false,
-        message: 'Errore configurazione server (variabili mancanti)'
+        message: 'Errore configurazione server'
       });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 🔎 Recupera prenotazione
-    let pren = null;
+    // 🔎 Recupera prenotazione con ricerca ESATTA
+    const qrUrl = `${supabaseUrl}/storage/v1/object/public/qrcodes/${file}.png`;
+    console.log('🔎 Ricerca qr_url:', qrUrl);
 
-    if (qrId) {
-      console.log('🔎 Ricerca per qrId:', qrId);
-      const { data, error } = await supabase
-        .from('prenotazioni')
-        .select('*')
-        .eq('qr_id', qrId)
-        .maybeSingle();
+    const { data: pren, error } = await supabase
+      .from('prenotazioni')
+      .select('*')
+      .eq('qr_url', qrUrl)
+      .maybeSingle();
 
-      if (error) {
-        console.error('❌ Errore query Supabase (qrId):', error);
-        throw error;
-      }
-      pren = data;
-      console.log('✅ Prenotazione trovata:', pren ? '✅' : '❌');
-    } else if (file) {
-      console.log('🔎 Ricerca per file:', file);
-      const { data, error } = await supabase
-        .from('prenotazioni')
-        .select('*')
-        .ilike('qr_url', `%${file}%`)
-        .maybeSingle();
-
-      if (error) {
-        console.error('❌ Errore query Supabase (file):', error);
-        throw error;
-      }
-      pren = data;
-      console.log('✅ Prenotazione trovata:', pren ? '✅' : '❌');
-    } else {
-      console.error('❌ Parametri mancanti (qrId e file)');
-      return res
-        .status(400)
-        .json({ success: false, message: 'Parametro mancante (qrId o file)' });
+    if (error) {
+      console.error('❌ Errore query Supabase:', error);
+      throw error;
     }
 
     if (!pren) {
       console.warn('❌ Prenotazione non trovata');
-      return res
-        .status(404)
-        .json({ success: false, message: 'Prenotazione non trovata' });
+      return res.status(404).json({ success: false, message: 'Prenotazione non trovata' });
     }
+
+    console.log('✅ Prenotazione trovata:', pren.nome);
 
     // 🕓 Aggiorna check-in
     const nowIso = new Date().toISOString();
@@ -137,13 +117,9 @@ export default async function handler(req, res) {
 
     console.log('✅ Check-in aggiornato');
 
-    // 💬 Notifica Telegram breve
-    const breve =
-      `✅ Check-in\n` +
-      `👤 ${pren.nome ?? '-'}\n` +
-      `🕓 ${pren.ora ?? '-'}  🍽 Tavolo ${pren.tavolo ?? '?'}  👥 ${pren.pax ?? '-'}`;
-
-    await notifyTelegram(breve);
+    // 💬 Notifica Telegram
+    const tMsg = `✅ Check-in\n👤 ${pren.nome}\n🕓 ${pren.ora} 🍽 Tavolo ${pren.tavolo || '?'} 👥 ${pren.pax || '-'}`;
+    await notifyTelegram(tMsg);
 
     return res.status(200).json({
       success: true,
@@ -156,13 +132,9 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('❌ API checkinConfirm error:', err);
-    console.error('   Stack:', err.stack);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: 'Errore durante il check-in',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
+    return res.status(500).json({
+      success: false,
+      message: 'Errore durante il check-in'
+    });
   }
 }
