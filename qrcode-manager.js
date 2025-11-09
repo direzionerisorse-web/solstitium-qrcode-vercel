@@ -77,7 +77,7 @@ async function initCheckin() {
     return;
   }
 
-  const qrUrl = `${SUPABASE_URL}/storage/v1/object/public/qrcodes/${file}`;
+  const qrUrl = `${SUPABASE_URL}/storage/v1/object/public/qrcodes/${file}.png`;
 
   // --- CLIENTE ---
   if (!isManager()) {
@@ -96,7 +96,7 @@ async function initCheckin() {
     const { data: pren, error } = await supabase
       .from("prenotazioni")
       .select("*")
-      .ilike("qr_url", `%${file}%`)
+      .eq("qr_url", qrUrl)
       .maybeSingle();
 
     if (error || !pren) {
