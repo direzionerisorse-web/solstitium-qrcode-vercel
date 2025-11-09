@@ -1,10 +1,11 @@
 /* =========================================================
-💎 SOLSTITIUM QR CHECK-IN MANAGER — v3.0 HYBRID
+💎 SOLSTITIUM QR CHECK-IN MANAGER — v3.1
+• Scanner QR integrato
 • Anteprima prima di confermare
 • Registra via API Vercel
 • Manager mode permanente
 • Badge elegante + Esci button
-• Telegram integrato
+• Telegram integrato (chat separata)
 ========================================================= */
 
 const SUPABASE_URL = "https://srnlpifcanveusghgqaa.supabase.co";
@@ -72,6 +73,44 @@ async function notifyTelegram(message) {
 
 // ===== MAIN LOGIC =====
 async function initCheckin() {
+  // --- Se NO file parameter, mostra SCANNER QR per manager ---
+  if (!file && isManager()) {
+    msgBox.innerHTML = `<p style="color:#d4af37;">📱 Scanner QR</p>`;
+    box.innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div id="scanner-container" style="width:300px;height:300px;margin:0 auto;border:2px solid #d4af37;border-radius:12px;background:#111;overflow:hidden;">
+          <video id="qr-video" style="width:100%;height:100%;object-fit:cover;"></video>
+        </div>
+        <p style="color:#d4af37;margin-top:20px;font-size:0.9rem;">Posiziona il QR nel frame</p>
+      </div>`;
+    
+    // Carica script zxing per scanner
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/@zxing/library@latest/umd/index.min.js";
+    script.onload = () => {
+      const video = document.getElementById("qr-video");
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      
+      codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
+        if (result) {
+          const qrText = result.getText();
+          console.log("QR scanned:", qrText);
+          
+          // Estrai il nome file dal QR
+          const fileFromQR = qrText.split("file=")[1]?.split("&")[0];
+          if (fileFromQR) {
+            window.location.href = `?file=${fileFromQR}&mgr=8008`;
+          }
+        }
+      });
+    };
+    document.head.appendChild(script);
+    
+    mountExitButton();
+    showManagerBadge();
+    return;
+  }
+
   if (!file) {
     msgBox.innerHTML = `<p class="warn">⚠️ QR non valido</p>`;
     return;
@@ -93,10 +132,11 @@ async function initCheckin() {
   msgBox.innerHTML = `<p style="color:#d4af37;">⏳ Verifica...</p>`;
 
   try {
+    const qrUrlExact = `${SUPABASE_URL}/storage/v1/object/public/qrcodes/${file}.png`;
     const { data: pren, error } = await supabase
       .from("prenotazioni")
       .select("*")
-      .eq("qr_url", qrUrl)
+      .eq("qr_url", qrUrlExact)
       .maybeSingle();
 
     if (error || !pren) {
@@ -127,6 +167,7 @@ async function initCheckin() {
         <p><b>${pren.nome}</b></p>
         <p>${pren.data} — ${pren.ora}</p>
         <p>${pren.pax || 0} pax · Tavolo ${pren.tavolo || "-"}</p>
+        <img src="${qrUrl}" alt="QR" style="width:150px;height:150px;border-radius:8px;margin:15px 0;">
         <button id="confirmBtn" style="margin-top:20px;padding:12px 30px;background:#ffd766;
           color:#111;border:none;border-radius:10px;cursor:pointer;font-weight:700;">
           ✔️ Conferma
